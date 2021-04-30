@@ -23,6 +23,7 @@ vm_version=6
 
 # Currently supported systems:
 supported="    CentOS/RHEL Linux 7, and 8 on x86_64
+    Rocky Linux 8 on x86_64
     Debian 9, and 10 on i386 and amd64
     Ubuntu 16.04 LTS, 18.04 LTS, and 20.04 LTS on i386 and amd64"
 
@@ -328,7 +329,7 @@ log_fatal() {
 remove_virtualmin_release () {
   # shellcheck disable=SC2154
   case "$os_type" in
-    "fedora" | "centos" | "rhel" | "amazon" )
+    "fedora" | "centos" | "rhel" | "amazon" | "rocky" )
     run_ok "rpm -e virtualmin-release" "Removing virtualmin-release"
     ;;
     "debian" | "ubuntu" )
@@ -607,10 +608,16 @@ install_virtualmin_release () {
   # Grab virtualmin-release from the server
   log_debug "Configuring package manager for ${os_real} ${os_version}..."
   case "$os_type" in
-    rhel|centos|fedora|amazon)
+    rhel|centos|fedora|amazon|rocky)
     case "$os_type" in
-      rhel|centos)
+      rhel|centos|amazon)
       if [ "$os_major_version" -lt 7 ]; then
+        printf "${RED}${os_type} ${os_version} is not supported by this installer.${NORMAL}\\n"
+        exit 1
+      fi
+      ;;
+      rocky)
+      if [ "$os_major_version" -lt 8]; then
         printf "${RED}${os_type} ${os_version} is not supported by this installer.${NORMAL}\\n"
         exit 1
       fi
@@ -823,7 +830,7 @@ install_with_yum () {
   fi
 
   # Important Perl packages are now hidden in PowerTools repo
-  if [ "$os_major_version" -eq 8 ] && [ "$os_type" = "centos" ]; then
+  if [ "$os_major_version" -eq 8 ] && [ [ "$os_type" = "centos" ] || [ "$os_type" = "rocky" ] ]; then
     # Detect PowerTools repo name
     powertools="PowerTools"
     centos_stream=$(dnf repolist all | grep "^powertools")
@@ -881,6 +888,8 @@ install_scl_php () {
     run_ok "$install scl-utils" "Installing scl-utils"
     if [ "${os_type}" = "centos" ]; then
       run_ok "$install centos-release-scl" "Install Software Collections release package"
+    elif [ "${os_type}" = "rocky" ]; then
+      run_ok "$install rocky-release-scl" "Install Software Collections release package"
     elif [ "${os_type}" = "rhel" ]; then
       run_ok "$install_config_manager --enable rhel-server-rhscl-${os_major_version}-rpms" "Enabling Server Software Collection"
     fi
@@ -945,7 +954,7 @@ disable_selinux () {
 
 # Changes that are specific to OS
 case "$os_type" in
-  "fedora" | "centos" | "rhel" | "amazon" )
+  "fedora" | "centos" | "rhel" | "amazon" | "rocky" )
   disable_selinux
   ;;
 esac
